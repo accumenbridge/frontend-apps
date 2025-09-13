@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YOLO Object Detection</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>YOLO Object Detection</h1>
+        <p>Upload an image to get object detection results from the YOLO model running on Google Colab.</p>
+        
+        <form id="upload-form" enctype="multipart/form-data">
+            <input type="file" id="image-upload" accept="image/*" required>
+            <button type="submit">Detect Objects</button>
+        </form>
+
+        <div id="results">
+            <h2>Results</h2>
+            <div id="image-preview"></div>
+            <div id="detections"></div>
+        </div>
+
+        <div id="loading" class="hidden">
+            <p>Processing image...</p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
