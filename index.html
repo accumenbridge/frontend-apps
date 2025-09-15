@@ -1,32 +1,459 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YOLO Object Detection</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Accumen Bridge AI Vision Demo</title>
+    <!-- Use the Inter font from Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- HLS.js for live stream playback -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+
+        /* Custom scrollbar for better presentation */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #e5e7eb;
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #9ca3af;
+            border-radius: 10px;
+        }
+
+        .scroll-container {
+            -webkit-overflow-scrolling: touch;
+        }
+    </style>
 </head>
-<body>
-    <div class="container">
-        <h1>YOLO Object Detection</h1>
-        <p>Upload an image to get object detection results from the YOLO model running on Google Colab.</p>
-        
-        <form id="upload-form" enctype="multipart/form-data">
-            <input type="file" id="image-upload" accept="image/*" required>
-            <button type="submit">Detect Objects</button>
-        </form>
 
-        <div id="results">
-            <h2>Results</h2>
-            <div id="image-preview"></div>
-            <div id="detections"></div>
-        </div>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center">
 
-        <div id="loading" class="hidden">
-            <p>Processing image...</p>
-        </div>
+    <div class="w-full max-w-7xl px-4 py-8 md:px-8 lg:px-12">
+
+        <!-- Header with Company Branding -->
+        <header class="flex items-center justify-between py-4 mb-8">
+            <div class="flex items-center space-x-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-indigo-600" viewBox="0 0 24 24"
+                    fill="currentColor">
+                    <path d="M12 2L2 12l10 10 10-10L12 2zm0 14L6 10l6-6 6 6-6 6z" />
+                </svg>
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">Accumen Bridge</h1>
+                    <p class="text-sm text-gray-500 mt-0.5">A Quad bridge Company</p>
+                </div>
+            </div>
+            <nav class="hidden md:flex space-x-6 text-gray-600 font-medium">
+                <button onclick="showPage('home')" class="hover:text-indigo-600 transition-colors duration-200">Home</button>
+            </nav>
+        </header>
+
+        <!-- Main Content Wrapper with Page Logic -->
+        <main class="space-y-12">
+
+            <!-- Home Page: Video Submission Form -->
+            <section id="home-page" class="bg-white p-8 rounded-xl shadow-lg border border-gray-200">
+                <h2 class="text-2xl md:text-3xl font-bold text-gray-800 mb-4">AI Vision Demo Dashboard</h2>
+                <p class="text-lg text-gray-600 mb-6">
+                    Showcasing powerful AI models for crowd analysis and workplace monitoring.
+                    Submit a video link or file to see our models in action.
+                </p>
+
+                <div id="error-message" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg mb-6"
+                    role="alert">
+                    <p class="font-bold">Error:</p>
+                    <p id="error-text" class="text-sm"></p>
+                </div>
+
+                <div class="space-y-6">
+                    <!-- URL / RTSP Input -->
+                    <div>
+                        <label for="video-url" class="block text-sm font-medium text-gray-700 mb-1">Video URL or RTSP Link</label>
+                        <input type="url" id="video-url" name="video-url"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                            placeholder="e.g., https://example.com/video.mp4 or rtsp://..."
+                            required>
+                    </div>
+
+                    <!-- OR separator -->
+                    <div class="relative flex py-5 items-center">
+                        <div class="flex-grow border-t border-gray-300"></div>
+                        <span class="flex-shrink mx-4 text-gray-400">OR</span>
+                        <div class="flex-grow border-t border-gray-300"></div>
+                    </div>
+
+                    <!-- File Upload Input -->
+                    <div>
+                        <label for="video-file" class="block text-sm font-medium text-gray-700 mb-1">Upload Video File</label>
+                        <input type="file" id="video-file" name="video-file" accept="video/*"
+                            class="w-full text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 transition-colors cursor-pointer">
+                        <p class="mt-1 text-sm text-gray-500">
+                            Files will be securely uploaded to a Google Cloud Storage bucket for processing.
+                        </p>
+                    </div>
+
+                    <!-- Feature Selection Checkboxes -->
+                    <div class="mt-4">
+                        <h3 class="text-sm font-medium text-gray-700 mb-2">Select Analysis Models:</h3>
+                        <div class="flex flex-wrap gap-4">
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" checked disabled class="rounded text-indigo-600">
+                                <span class="ml-2 text-gray-600">Crowd & Head Counting</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" class="rounded text-indigo-600">
+                                <span class="ml-2 text-gray-600">Action Recognition</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" class="rounded text-indigo-600">
+                                <span class="ml-2 text-gray-600">Unattended Objects</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" class="rounded text-indigo-600">
+                                <span class="ml-2 text-gray-600">Worker Monitoring</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" class="rounded text-indigo-600">
+                                <span class="ml-2 text-gray-600">Unauthorized Entry</span>
+                            </label>
+                            <!-- NEW FEATURE: Face Recognition -->
+                            <label class="inline-flex items-center">
+                                <input type="checkbox" class="rounded text-indigo-600">
+                                <span class="ml-2 text-gray-600">Face Recognition</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button onclick="startAnalysis()"
+                        class="w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-indigo-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
+                        Start Analysis
+                    </button>
+                </div>
+            </section>
+
+            <!-- Results Page: Gradio-like Output -->
+            <section id="results-page" class="hidden bg-white p-6 md:p-8 rounded-xl shadow-lg border border-gray-200">
+                <h2 class="text-2xl md:text-3xl font-bold text-gray-800 mb-4">Analysis Results</h2>
+                <div id="results-container" class="space-y-8">
+                    <!-- Dynamic content will be injected here -->
+                    <div class="w-full bg-indigo-100 border-l-4 border-indigo-500 text-indigo-700 p-4 rounded-lg"
+                        role="alert" id="loading-message">
+                        <p class="font-medium">Analysis in progress...</p>
+                        <p class="text-sm">Please wait while we process the video with the selected models.</p>
+                    </div>
+                </div>
+                <div class="mt-8 text-center">
+                    <button onclick="showPage('home')"
+                        class="px-6 py-2 rounded-lg text-gray-600 border border-gray-300 hover:bg-gray-100 transition-colors">
+                        Run Another Analysis
+                    </button>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Footer -->
+        <footer class="mt-12 text-center text-gray-500 text-sm">
+            <p>&copy; <span id="current-year"></span> Accumen Bridge. All rights reserved.</p>
+            <p class="text-xs mt-1">A Quad bridge Company</p>
+        </footer>
+
     </div>
 
-    <script src="script.js"></script>
+    <script>
+        document.getElementById('current-year').textContent = new Date().getFullYear();
+
+        const BACKEND_API_URL = "https://ai-vision-backend-660269510558.us-central1.run.app"; // Provided by the user
+
+        let currentPage = 'home';
+        let currentAnalysisId = null;
+        let pollingInterval = null;
+
+        function showPage(pageId) {
+            document.getElementById('home-page').classList.add('hidden');
+            document.getElementById('results-page').classList.add('hidden');
+            document.getElementById('error-message').classList.add('hidden');
+
+            if (pageId === 'home') {
+                document.getElementById('home-page').classList.remove('hidden');
+                currentPage = 'home';
+                // Clear any active polling when returning to home page
+                if (pollingInterval) {
+                    clearInterval(pollingInterval);
+                    pollingInterval = null;
+                }
+            } else if (pageId === 'results') {
+                document.getElementById('results-page').classList.remove('hidden');
+                currentPage = 'results';
+            }
+        }
+
+        function displayError(message) {
+            document.getElementById('error-message').classList.remove('hidden');
+            document.getElementById('error-text').textContent = message;
+        }
+
+        async function uploadFile(file) {
+            try {
+                // 1. Get a signed URL from the backend
+                const response = await fetch(`${BACKEND_API_URL}/generate-signed-url`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ filename: file.name }),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to get signed URL');
+                }
+
+                const { signedUrl, blobName } = await response.json();
+
+                // 2. Upload the file directly to GCS using the signed URL
+                await fetch(signedUrl, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': file.type,
+                    },
+                    body: file,
+                });
+
+                console.log(`File uploaded to GCS: ${blobName}`);
+                return { blobName: blobName };
+
+            } catch (error) {
+                console.error('Error during file upload:', error);
+                throw new Error(`File upload failed: ${error.message}`);
+            }
+        }
+
+        async function startAnalysis() {
+            const videoUrlInput = document.getElementById('video-url');
+            const videoFile = document.getElementById('video-file').files[0];
+            const selectedModels = Array.from(document.querySelectorAll('input[type="checkbox"]:checked'))
+                                        .map(checkbox => checkbox.nextElementSibling.textContent.trim());
+
+            let videoSource = null;
+            document.getElementById('error-message').classList.add('hidden'); // Hide previous errors
+
+            if (videoUrlInput.value) {
+                videoSource = videoUrlInput.value;
+            } else if (videoFile) {
+                try {
+                    const uploadResult = await uploadFile(videoFile);
+                    videoSource = uploadResult.blobName; // GCS blob name
+                } catch (error) {
+                    displayError(error.message);
+                    return;
+                }
+            } else {
+                displayError('Please provide a video URL or upload a video file.');
+                return;
+            }
+
+            // Show results page and loading message
+            showPage('results');
+            const resultsContainer = document.getElementById('results-container');
+            resultsContainer.innerHTML = document.getElementById('loading-message').outerHTML;
+            document.getElementById('loading-message').classList.remove('hidden');
+
+            try {
+                const response = await fetch(`${BACKEND_API_URL}/submit-for-analysis`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ videoSource, selectedModels }),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to submit analysis request');
+                }
+
+                const { analysisId } = await response.json();
+                currentAnalysisId = analysisId;
+                console.log(`Analysis started with ID: ${analysisId}`);
+
+                // Start polling for results
+                pollingInterval = setInterval(pollForResults, 5000); // Poll every 5 seconds
+
+            } catch (error) {
+                console.error('Error starting analysis:', error);
+                displayError(`Failed to start analysis: ${error.message}`);
+                showPage('home'); // Go back to home page on error
+            }
+        }
+
+        async function pollForResults() {
+            if (!currentAnalysisId) return;
+
+            try {
+                const response = await fetch(`${BACKEND_API_URL}/analysis-results/${currentAnalysisId}`);
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to fetch analysis results');
+                }
+
+                const analysisData = await response.json();
+                console.log('Polling results:', analysisData);
+
+                if (analysisData.status === 'completed') {
+                    clearInterval(pollingInterval); // Stop polling
+                    pollingInterval = null;
+                    renderResults(analysisData);
+                } else if (analysisData.status === 'failed') {
+                    clearInterval(pollingInterval); // Stop polling
+                    pollingInterval = null;
+                    displayError(`Analysis failed: ${analysisData.error || 'Unknown error'}`);
+                    showPage('home');
+                }
+                // If status is 'processing', continue polling
+            } catch (error) {
+                console.error('Error polling for results:', error);
+                clearInterval(pollingInterval); // Stop polling on error
+                pollingInterval = null;
+                displayError(`Error fetching results: ${error.message}`);
+                showPage('home');
+            }
+        }
+
+        function renderResults(data) {
+            const resultsContainer = document.getElementById('results-container');
+            resultsContainer.innerHTML = ''; // Clear loading message
+
+            // Default values for features if not present in data
+            const defaultFeatureData = {
+                headCount: 0,
+                processedVideoUrl: 'https://live.example.com/stream/output.m3u8', // Fallback
+                unattendedObjects: { objects: 0, locations: [] },
+                actionRecognition: { actions: [] },
+                workerMonitoring: { complianceScore: 0, nonComplianceEvents: [] },
+                unauthorizedEntry: { events: 0, timestamps: [] },
+                faceRecognition: { recognizedFaces: [], unrecognizedFaces: 0 }
+            };
+
+            const displayData = { ...defaultFeatureData, ...data.results };
+            displayData.videoSource = data.videoSource; // Keep original video source
+
+            // Render a card for each feature
+            const featureCards = `
+                <!-- Video Player Card for Live Stream -->
+                <div class="bg-gray-50 p-6 rounded-xl shadow-inner border border-gray-200">
+                    <h3 class="text-xl font-medium text-gray-800 mb-4">Live Analysis Stream</h3>
+                    <video id="live-stream-video" controls autoplay class="w-full rounded-lg shadow-md border border-gray-300"></video>
+                    <p class="mt-4 text-sm text-gray-500">Live stream source: ${displayData.videoSource}</p>
+                </div>
+
+                <!-- Metrics Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+                    <!-- Crowd & Head Counting Card -->
+                    <div class="bg-gray-50 p-6 rounded-xl shadow-inner border border-gray-200 flex flex-col items-start">
+                        <h3 class="text-xl font-medium text-gray-700 mb-2">Crowd Counting</h3>
+                        <p class="text-gray-500 text-sm mb-4">Total individuals detected.</p>
+                        <div class="flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-indigo-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h-4v-4h4v4zM10 20h-4v-4h4v4zM17 12h-4V8h4v4zM10 12h-4V8h4v4zM7 4h4v4H7V4zM13 4h4v4h-4V4zM19 4h4v4h-4V4zM7 12h4v4H7v-4zM13 12h4v4h-4v-4zM19 12h4v4h-4v-4zM7 20h4v4H7v-4zM13 20h4v4h-4v-4zM19 20h4v4h-4v-4z"/>
+                            </svg>
+                            <span class="text-3xl font-bold text-gray-900">${displayData.headCount}</span>
+                        </div>
+                    </div>
+
+                    <!-- Face Recognition Card -->
+                    <div class="bg-gray-50 p-6 rounded-xl shadow-inner border border-gray-200 flex flex-col items-start">
+                        <h3 class="text-xl font-medium text-gray-700 mb-2">Face Recognition</h3>
+                        <p class="text-gray-500 text-sm mb-4">Recognized individuals.</p>
+                        <ul class="list-disc list-inside mt-2 text-sm text-gray-600 space-y-1">
+                            ${displayData.faceRecognition.recognizedFaces.map(face => `<li>${face}</li>`).join('')}
+                            <li>+ ${displayData.faceRecognition.unrecognizedFaces} Unrecognized</li>
+                        </ul>
+                    </div>
+
+                    <!-- Unauthorized Entry Card -->
+                    <div class="bg-gray-50 p-6 rounded-xl shadow-inner border border-gray-200 flex flex-col items-start">
+                        <h3 class="text-xl font-medium text-gray-700 mb-2">Unauthorized Entry</h3>
+                        <p class="text-gray-500 text-sm mb-4">Number of access alerts.</p>
+                        <div class="flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-red-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4.75a7 7 0 1113.876 0M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-3xl font-bold text-gray-900">${displayData.unauthorizedEntry.events}</span>
+                        </div>
+                        <ul class="list-disc list-inside mt-2 text-sm text-gray-600 space-y-1">
+                            ${displayData.unauthorizedEntry.timestamps.map(t => `<li>Event at ${t}</li>`).join('')}
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Detailed Features Section -->
+                <div class="space-y-6">
+                    <h3 class="text-2xl font-semibold text-gray-800 mt-4">Detailed Analysis</h3>
+
+                    <!-- Worker Monitoring -->
+                    <div class="bg-gray-50 p-6 rounded-xl shadow-inner border border-gray-200">
+                        <h4 class="text-xl font-medium text-gray-700 mb-2">Worker Monitoring & Compliance</h4>
+                        <p class="text-gray-500 text-sm">Overall compliance score based on predefined safety protocols.</p>
+                        <div class="flex items-center mt-4">
+                            <span class="text-4xl font-bold text-indigo-600 mr-2">${displayData.workerMonitoring.complianceScore}%</span>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                <div class="bg-indigo-600 h-2.5 rounded-full" style="width: ${displayData.workerMonitoring.complianceScore}%"></div>
+                            </div>
+                        </div>
+                        <ul class="list-disc list-inside mt-4 text-sm text-gray-600">
+                            <li>Non-Compliance Events: ${displayData.workerMonitoring.nonComplianceEvents.length}</li>
+                        </ul>
+                    </div>
+
+                    <!-- Action Recognition -->
+                    <div class="bg-gray-50 p-6 rounded-xl shadow-inner border border-gray-200">
+                        <h4 class="text-xl font-medium text-gray-700 mb-2">Action Recognition</h4>
+                        <p class="text-gray-500 text-sm">Recognized actions and activities from the video feed.</p>
+                        <ul class="list-disc list-inside mt-4 text-sm text-gray-600">
+                            ${displayData.actionRecognition.actions.map(action => `<li>${action}</li>`).join('')}
+                        </ul>
+                    </div>
+                    
+                    <!-- Unattended Objects -->
+                    <div class="bg-gray-50 p-6 rounded-xl shadow-inner border border-gray-200">
+                        <h4 class="text-xl font-medium text-gray-700 mb-2">Unattended Objects</h4>
+                        <p class="text-gray-500 text-sm">Alerts for objects left in designated areas for too long.</p>
+                        <ul class="list-disc list-inside mt-4 text-sm text-gray-600">
+                            <li>Detected Objects: ${displayData.unattendedObjects.objects}</li>
+                            <li>Locations: ${displayData.unattendedObjects.locations.join(', ')}</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+            resultsContainer.innerHTML = featureCards;
+
+            // Load the HLS stream
+            const videoElement = document.getElementById('live-stream-video');
+            if (Hls.isSupported()) {
+                const hls = new Hls();
+                hls.loadSource(displayData.processedVideoUrl);
+                hls.attachMedia(videoElement);
+            } else if (videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+                // Fallback for Safari on iOS
+                videoElement.src = displayData.processedVideoUrl;
+            }
+        }
+    </script>
 </body>
+
 </html>
